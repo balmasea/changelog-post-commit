@@ -10,44 +10,12 @@ WEEK_NUMBER_OF_DAYS = 7
 ESCAPE_STRING = ":fix:"
 JIRA_LINK = "https://jira.intranet.roche.com/jira/browse/"
 TASK_PREFIX = "GNAP-"
-CHANGELOG_SUBTITLE = r":[A-Z]+:"
+CHANGELOG_SUBTITLE = r"(?P<type_of_change>:[A-Z]+:)"
 
 
 def get_commit_file():
     commitMessageFile = open(sys.argv[1])
     return commitMessageFile.read().strip()
-
-
-def get_changelog_lines():
-    try:
-        with open(CHANGELOG_FILE, "r") as cl:
-            return cl.read()
-    except FileNotFoundError:
-        return """# Changelog\n"""
-
-
-def get_next_release_date(todays_date=None):
-    if todays_date is None:
-        todays_date = datetime.today()
-    diff = (WEDNESDAY - todays_date.weekday()) % WEEK_NUMBER_OF_DAYS
-    wanted_date = todays_date + timedelta(days=diff)
-    return f"{wanted_date:%B} {wanted_date.day} {wanted_date:%Y}"
-
-
-def get_latest_release_version(changelog_lines):
-    version_regex = r"## v(?P<first_digit>\d+)\.(?P<second_digit>\d+)\.(?P<third_digit>\d+)"
-    m = re.search(version_regex, changelog_lines)
-    try:
-        second_digit = int(m.group('second_digit')) + 1
-        return f"## v{m.group('first_digit')}.{second_digit}.{m.group('third_digit')}"
-    except AttributeError:
-        return "## v0.1.0"
-
-
-def dump_to_changelog_file(content):
-    with open(CHANGELOG_FILE, "w") as cl:
-        for line in content:
-            cl.write(f"{line}\n") 
 
 
 def get_commit_line(commit_msg):
@@ -65,29 +33,101 @@ def get_jira_task(commit_line, gnap_regex):
         return ""
 
 
-def get_changeline(commit_msg):
+def get_subtitle(commit_line):
+    m = re.search(CHANGELOG_SUBTITLE, commit_line)
+    try:
+        type_of_change = m.group("type_of_change").replace(":", "")
+        return f"### {type_of_change.capitalize()}"
+    except AttributeError:
+        return "### New"
+
+
+def get_changelines(commit_msg):
     commit_line = get_commit_line(commit_msg)
     commit_line = commit_line.replace(ESCAPE_STRING, "")
     gnap_regex = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
     jira_task = get_jira_task(commit_line, gnap_regex)
     commit_line = re.sub(gnap_regex, "", commit_line).lstrip()
-    return f"* {jira_task}{commit_line}\n"
+    type_of_change = get_subtitle(commit_line)
+    commit_line = re.sub(CHANGELOG_SUBTITLE, "", commit_line).lstrip()
+    return [f"{type_of_change}", f"* {jira_task}{commit_line}"]
+
+
+def get_changelog_lines():
+    try:
+        with open(CHANGELOG_FILE, "r") as cl:
+            return cl.read()
+    except FileNotFoundError:
+        return """# Changelog"""
+
+
+def get_next_release_date(todays_date=None):
+    if todays_date is None:
+        todays_date = datetime.today()
+    diff = (WEDNESDAY - todays_date.weekday()) % WEEK_NUMBER_OF_DAYS
+    wanted_date = todays_date + timedelta(days=diff)
+    return f"{wanted_date:%B} {wanted_date.day} {wanted_date:%Y}"
+
+
+def get_latest_release_version(changelog_lines, next_release_date):
+    version_regex = r"## v(?P<first_digit>\d+)\.(?P<second_digit>\d+)\.(?P<third_digit>\d+)"
+    m = re.search(version_regex, changelog_lines)
+    try:
+        second_digit = int(m.group('second_digit')) + 1 if next_release_date not in changelog_lines else m.group('second_digit')
+        return f"## v{m.group('first_digit')}.{second_digit}.{m.group('third_digit')}"
+    except AttributeError:
+        return "## v0.1.0"
+
+
+def insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines):
+    list_of_lines = changelog_lines.split("\n")
+    if latest_release_version not in changelog_lines:
+        content = list_of_lines[:2]
+        content.append(f"{latest_release_version} ({next_release_date})")
+        content.extend(changelines)
+        content.extend(list_of_lines[2:])
+        return content
+    init = list_of_lines.index(f"{latest_release_version} ({next_release_date})")
+    content = list_of_lines[:init]
+    subset = list_of_lines[init + 1:]
+    end = len(list_of_lines)
+    version_regex = r"## v\d+\.\d+\.\d+"
+    for i, line in enumerate(subset):
+        m = re.search(version_regex, line)
+        if m is not None:
+            end = i + init
+            break
+    subset = list_of_lines[init:end]
+    try:
+        group_index = subset.index(changelines[0])
+        subset.insert(group_index + 1, changelines[1])
+    except ValueError:
+        subset.insert(init, changelines[0])
+        subset.insert(init + 1, changelines[1])
+    content.extend(subset)
+    content.extend(list_of_lines[end:])
+    return content
+
+
+def dump_to_changelog_file(content):
+    with open(CHANGELOG_FILE, "w") as cl:
+        for line in content:
+            if line is not "":
+                cl.write(f"{line}\n")
+            if line.startswith("#"):
+                cl.write("\n")
 
 
 def main():
     commit_msg = get_commit_file()
     if commit_msg.startswith(ESCAPE_STRING) is True:
-        changelines = get_changeline(commit_msg)
-        changelog_lines = get_changelog_lines()
+        changelines = get_changelines(commit_msg)
         next_release_date = get_next_release_date()
-        latest_release_version = get_latest_release_version(changelog_lines)
-        content = changelog_lines.split("\n")[:2]
-        content.append(f"{latest_release_version} ({next_release_date})\n")
-        content.append(changelines)
-        content.extend(changelog_lines.split("\n")[2:])
+        changelog_lines = get_changelog_lines()
+        latest_release_version = get_latest_release_version(changelog_lines, next_release_date)
+        content = insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines)
         dump_to_changelog_file(content)
 
 
 if __name__ == "__main__":
     main()
-
