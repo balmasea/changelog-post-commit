@@ -1,31 +1,38 @@
 #!/usr/bin/python3
 
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 import sys
 import re
 
-CHANGELOG_FILE = 'CHANGELOG.md'
+CHANGELOG_FILE = "CHANGELOG.md"
 WEDNESDAY = 2
 WEEK_NUMBER_OF_DAYS = 7
+ESCAPE_STRING = ":fix:"
+JIRA_LINK = "https://jira.intranet.roche.com/jira/browse/"
+TASK_PREFIX = "GNAP-"
+CHANGELOG_SUBTITLE = r":[A-Z]+:"
+
 
 def get_commit_file():
     commitMessageFile = open(sys.argv[1])
     return commitMessageFile.read().strip()
 
+
 def get_changelog_lines():
     try:
-        with open(CHANGELOG_FILE, 'r') as cl:
+        with open(CHANGELOG_FILE, "r") as cl:
             return cl.read()
     except FileNotFoundError:
         return """# Changelog\n"""
 
+
 def get_next_release_date(todays_date=None):
-    if todays_date == None:
+    if todays_date is None:
         todays_date = datetime.today()
-    
     diff = (WEDNESDAY - todays_date.weekday()) % WEEK_NUMBER_OF_DAYS
     wanted_date = todays_date + timedelta(days=diff)
     return f"{wanted_date:%B} {wanted_date.day} {wanted_date:%Y}"
+
 
 def get_latest_release_version(changelog_lines):
     version_regex = r"## v(?P<first_digit>\d+)\.(?P<second_digit>\d+)\.(?P<third_digit>\d+)"
@@ -36,30 +43,51 @@ def get_latest_release_version(changelog_lines):
     except AttributeError:
         return "## v0.1.0"
 
+
 def dump_to_changelog_file(content):
-    with open(CHANGELOG_FILE, 'w') as cl:
+    with open(CHANGELOG_FILE, "w") as cl:
         for line in content:
             cl.write(f"{line}\n") 
 
 
-def __main__():    
+def get_commit_line(commit_msg):
+    lines = commit_msg.split("\n")
+    fix = [line for line in lines if line.startswith(ESCAPE_STRING)]
+    return fix[0]
+
+
+def get_jira_task(commit_line, gnap_regex):
+    m = re.search(gnap_regex, commit_line)
+    try:
+        jira_task = m.group("jira_task")
+        return f"[{jira_task}]({JIRA_LINK}{jira_task}) - "
+    except AttributeError:
+        return ""
+
+
+def get_changeline(commit_msg):
+    commit_line = get_commit_line(commit_msg)
+    commit_line = commit_line.replace(ESCAPE_STRING, "")
+    gnap_regex = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
+    jira_task = get_jira_task(commit_line, gnap_regex)
+    commit_line = re.sub(gnap_regex, "", commit_line).lstrip()
+    return f"* {jira_task}{commit_line}\n"
+
+
+def main():
     commit_msg = get_commit_file()
-    if commit_msg.startswith(":fix:") is True:
-        gnap_regex = r"(?P<jira_task>GNAP-\d+)"
-        m = re.search(gnap_regex, commit_msg)
-        jira_task = m.group('jira_task')
-        line = f"[{jira_task}](https://jira.intranet.roche.com/jira/browse/{jira_task}] - {commit_msg}\n"
+    if commit_msg.startswith(ESCAPE_STRING) is True:
+        changelines = get_changeline(commit_msg)
         changelog_lines = get_changelog_lines()
-        # next_release_date = get_next_release_date(date(2021,4,17))
         next_release_date = get_next_release_date()
         latest_release_version = get_latest_release_version(changelog_lines)
         content = changelog_lines.split("\n")[:2]
-        print(content)
         content.append(f"{latest_release_version} ({next_release_date})\n")
-        # content.append("This is my first automated change in changelog\n")
-        content.append(line)
+        content.append(changelines)
         content.extend(changelog_lines.split("\n")[2:])
-        print(content)
         dump_to_changelog_file(content)
 
-__main__()
+
+if __name__ == "__main__":
+    main()
+
