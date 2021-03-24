@@ -120,6 +120,13 @@ def dump_to_changelog_file(content):
                 cl.write("\n")
 
 
+def clean_msg(commit_msg):
+    commit_line = get_commit_line(commit_msg)
+    commit_line = commit_line.replace(ESCAPE_STRING, "")
+    commit_line = re.sub(CHANGELOG_SUBTITLE, "", commit_line).lstrip()
+    return commit_line
+
+
 def main():
     commit_msg = get_commit_file()
     if commit_msg.startswith(ESCAPE_STRING) is True:
@@ -130,7 +137,7 @@ def main():
         content = insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines)
         dump_to_changelog_file(content)
         os.system(f"git add {CHANGELOG_FILE}")
-        os.system(f"git commit -am \"Updating changelog automatically\"")
+        os.system(f"git commit --amend -m \"{clean_msg(commit_msg)}\"")
 
 
 if __name__ == "__main__":
