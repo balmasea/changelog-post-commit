@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 import sys
 import re
+import os
 
 CHANGELOG_FILE = "CHANGELOG.md"
 WEDNESDAY = 2
@@ -100,7 +101,8 @@ def insert_commit_in_changelog_lines(changelog_lines, latest_release_version, ne
     subset = list_of_lines[init:end]
     try:
         group_index = subset.index(changelines[0])
-        subset.insert(group_index + 1, changelines[1])
+        if changelines[1] not in subset:
+            subset.insert(group_index + 1, changelines[1])
     except ValueError:
         subset.insert(init, changelines[0])
         subset.insert(init + 1, changelines[1])
@@ -127,6 +129,8 @@ def main():
         latest_release_version = get_latest_release_version(changelog_lines, next_release_date)
         content = insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines)
         dump_to_changelog_file(content)
+        os.system(f"git add {CHANGELOG_FILE}")
+        os.system(f"git commit -am \"Updating changelog automatically\"")
 
 
 if __name__ == "__main__":
