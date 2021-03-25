@@ -17,14 +17,14 @@ class Group:
 
     def add_line(self, line):
         line = line.replace("* ", "")
-        self.__lines += f"* {line}"
+        self.__lines += f"* {line.strip()}"
 
     def title_matches(self, title):
         return title.upper() in self.__title.upper()
 
     def __str__(self):
         content = ""
-        if self.has_content():
+        if self.has_content() is True:
             content += f"{self.__title}\n\n"
             for line in self.__lines:
                 content += f"{line}"

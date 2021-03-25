@@ -14,6 +14,8 @@ ESCAPE_STRING = ":fix:"
 JIRA_LINK = "https://jira.intranet.roche.com/jira/browse/"
 TASK_PREFIX = "GNAP-"
 CHANGELOG_SUBTITLE = r"(?P<type_of_change>:[A-Z]+:)"
+GNAP_REGEX = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
+
 
 
 def get_commit_file():
@@ -27,8 +29,8 @@ def get_commit_line(commit_msg):
     return fix[0]
 
 
-def get_jira_task(commit_line, gnap_regex):
-    m = re.search(gnap_regex, commit_line)
+def get_jira_task(commit_line):
+    m = re.search(GNAP_REGEX, commit_line)
     try:
         jira_task = m.group("jira_task")
         return f"[{jira_task}]({JIRA_LINK}{jira_task}) - "
@@ -48,9 +50,8 @@ def get_subtitle(commit_line):
 def get_changelines(commit_msg):
     commit_line = get_commit_line(commit_msg)
     commit_line = commit_line.replace(ESCAPE_STRING, "").lstrip()
-    gnap_regex = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
-    jira_task = get_jira_task(commit_line, gnap_regex)
-    commit_line = re.sub(gnap_regex, "", commit_line).lstrip()
+    jira_task = get_jira_task(commit_line)
+    commit_line = re.sub(GNAP_REGEX, "", commit_line).lstrip()
     # type_of_change = get_subtitle(commit_line)
     # commit_line = re.sub(CHANGELOG_SUBTITLE, "", commit_line).lstrip()
     return f"* {jira_task}{commit_line}"
@@ -121,6 +122,7 @@ def clean_msg(commit_msg):
     commit_line = get_commit_line(commit_msg)
     commit_line = commit_line.replace(ESCAPE_STRING, "")
     commit_line = re.sub(CHANGELOG_SUBTITLE, "", commit_line).lstrip()
+    commit_line = re.sub(GNAP_REGEX, "", commit_line).lstrip()
     return commit_line
 
 
@@ -129,12 +131,15 @@ def main():
     if commit_msg.startswith(ESCAPE_STRING) is True:
         changelog = Changelog()
         changelog.analyze_changelog_file(CHANGELOG_FILE)
+        if clean_msg(commit_msg) in changelog.__str__():
+            print("Already commited")
+            exit(0)
         next_release_date = get_next_release_date()
         latest_release_version = get_latest_release_version(changelog.__str__(), next_release_date)
         changelog.add_line_in_version(latest_release_version, get_changelines(commit_msg))
         dump_to_changelog_file(changelog)
         os.system(f"git add {CHANGELOG_FILE}")
-        os.system(f"git commit --amend -m \"{clean_msg(commit_msg)}\"")
+        os.system(f"git commit --amend -m \"{commit_msg}\"")
 
 if __name__ == "__main__":
     main()
