@@ -47,13 +47,13 @@ def get_subtitle(commit_line):
 
 def get_changelines(commit_msg):
     commit_line = get_commit_line(commit_msg)
-    commit_line = commit_line.replace(ESCAPE_STRING, "")
+    commit_line = commit_line.replace(ESCAPE_STRING, "").lstrip()
     gnap_regex = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
     jira_task = get_jira_task(commit_line, gnap_regex)
     commit_line = re.sub(gnap_regex, "", commit_line).lstrip()
-    type_of_change = get_subtitle(commit_line)
-    commit_line = re.sub(CHANGELOG_SUBTITLE, "", commit_line).lstrip()
-    return [f"{type_of_change}", f"* {jira_task}{commit_line}"]
+    # type_of_change = get_subtitle(commit_line)
+    # commit_line = re.sub(CHANGELOG_SUBTITLE, "", commit_line).lstrip()
+    return f"* {jira_task}{commit_line}"
 
 
 def get_changelog_lines():
@@ -77,9 +77,9 @@ def get_latest_release_version(changelog_lines, next_release_date):
     m = re.search(version_regex, changelog_lines)
     try:
         second_digit = int(m.group('second_digit')) + 1 if next_release_date not in changelog_lines else m.group('second_digit')
-        return f"## v{m.group('first_digit')}.{second_digit}.{m.group('third_digit')}"
+        return f"## v{m.group('first_digit')}.{second_digit}.{m.group('third_digit')} ({next_release_date})"
     except AttributeError:
-        return "## v0.1.0"
+        return f"## v0.1.0 ({next_release_date})"
 
 
 def insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines):
@@ -115,12 +115,7 @@ def insert_commit_in_changelog_lines(changelog_lines, latest_release_version, ne
 
 def dump_to_changelog_file(content):
     with open(CHANGELOG_FILE, "w") as cl:
-        for line in content:
-            if line is not "":
-                cl.write(f"{line}\n")
-            if line.startswith("#"):
-                cl.write("\n")
-
+        cl.write(content.__str__())
 
 def clean_msg(commit_msg):
     commit_line = get_commit_line(commit_msg)
@@ -130,22 +125,16 @@ def clean_msg(commit_msg):
 
 
 def main():
-    # commit_msg = get_commit_file()
-    # if commit_msg.startswith(ESCAPE_STRING) is True:
-    #     changelines = get_changelines(commit_msg)
-    #     next_release_date = get_next_release_date()
-    #     changelog_lines = get_changelog_lines()
-    #     latest_release_version = get_latest_release_version(changelog_lines, next_release_date)
-    #     content = insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines)
-    #     dump_to_changelog_file(content)
-    #     os.system(f"git add {CHANGELOG_FILE}")
-    #     os.system(f"git commit --amend -m \"{clean_msg(commit_msg)}\"")
     commit_msg = get_commit_file()
     if commit_msg.startswith(ESCAPE_STRING) is True:
         changelog = Changelog()
         changelog.analyze_changelog_file(CHANGELOG_FILE)
-        print(changelog)
-
+        next_release_date = get_next_release_date()
+        latest_release_version = get_latest_release_version(changelog.__str__(), next_release_date)
+        changelog.add_line_in_version(latest_release_version, get_changelines(commit_msg))
+        dump_to_changelog_file(changelog)
+        os.system(f"git add {CHANGELOG_FILE}")
+        os.system(f"git commit --amend -m \"{clean_msg(commit_msg)}\"")
 
 if __name__ == "__main__":
     main()
