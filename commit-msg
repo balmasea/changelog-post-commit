@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 import sys
 import re
 import os
+from changelog import Changelog
+
 
 CHANGELOG_FILE = "CHANGELOG.md"
 WEDNESDAY = 2
@@ -128,16 +130,21 @@ def clean_msg(commit_msg):
 
 
 def main():
+    # commit_msg = get_commit_file()
+    # if commit_msg.startswith(ESCAPE_STRING) is True:
+    #     changelines = get_changelines(commit_msg)
+    #     next_release_date = get_next_release_date()
+    #     changelog_lines = get_changelog_lines()
+    #     latest_release_version = get_latest_release_version(changelog_lines, next_release_date)
+    #     content = insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines)
+    #     dump_to_changelog_file(content)
+    #     os.system(f"git add {CHANGELOG_FILE}")
+    #     os.system(f"git commit --amend -m \"{clean_msg(commit_msg)}\"")
     commit_msg = get_commit_file()
     if commit_msg.startswith(ESCAPE_STRING) is True:
-        changelines = get_changelines(commit_msg)
-        next_release_date = get_next_release_date()
-        changelog_lines = get_changelog_lines()
-        latest_release_version = get_latest_release_version(changelog_lines, next_release_date)
-        content = insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines)
-        dump_to_changelog_file(content)
-        os.system(f"git add {CHANGELOG_FILE}")
-        os.system(f"git commit --amend -m \"{clean_msg(commit_msg)}\"")
+        changelog = Changelog()
+        changelog.analyze_changelog_file(CHANGELOG_FILE)
+        print(changelog)
 
 
 if __name__ == "__main__":
