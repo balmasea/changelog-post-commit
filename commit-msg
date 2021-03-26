@@ -4,7 +4,139 @@ from datetime import datetime, timedelta
 import sys
 import re
 import os
-from changelog import Changelog
+
+
+class Group:
+    """Handle every group included in changelog."""
+
+    def __init__(self, title):
+        self.__title = title
+        self.__lines = ""
+
+    def has_content(self):
+        return self.__lines != ""
+
+    def add_line(self, line):
+        line = line.replace("* ", "")
+        self.__lines += f"* {line.strip()}"
+
+    def title_matches(self, title):
+        return title.upper() in self.__title.upper()
+
+    def __str__(self):
+        content = ""
+        line_init = "^\*\s+"
+        if self.has_content() is True:
+            content += f"{self.__title}\n\n"
+            for line in self.__lines:
+                content += re.sub(line_init, "* ", f"{line}")
+            content += "\n"
+        return content
+
+
+class Version:
+    """Handle every version included in changelog."""
+
+    def __init__(self, version_title):
+        self.__version_title = version_title
+        self.__groups = []
+
+    def add_commit_line(self, line):
+        group_title_pattern = r"(?P<type_of_change>:[A-Z]+:)"
+        m = re.search(group_title_pattern, line)
+        line = re.sub(group_title_pattern, "", line).lstrip()
+        try:
+            title = m.group("type_of_change").replace(":", "")
+            group = self.find_group(title)
+            group.add_line(line)
+        except AttributeError:
+            print("Syntax is not correct for the commit. Rejected!")
+            exit(-1)
+
+    def set_line(self, line):
+        group_title_pattern = r"(?P<type_of_change>### \w+)"
+        m = re.search(group_title_pattern, line)
+        try:
+            title = m.group("type_of_change")
+            self.__groups.append(Group(title))
+        except AttributeError:
+            self.__groups[-1].add_line(line)
+
+    def version_title_matches(self, version_title):
+        return version_title in self.__version_title
+
+    def find_group(self, title):
+        try:
+            iterator = filter(lambda group: group.title_matches(title) is True, self.__groups)
+            return next(iterator)
+        except StopIteration:
+            self.__groups.append(Group(f"### {title.capitalize()}"))
+            return self.__groups[-1]
+
+    def __str__(self):
+        content = f"{self.__version_title}\n"
+        for group in self.__groups:
+            content += f"{group}"
+        content += "\n"
+        return content
+
+
+HEADER = "# Changelog"
+HEADER_SIZE = 1
+
+class Changelog:
+    """Handle all the changelog file"""
+
+    def __init__(self):
+        self.__versions = []
+
+    def push_version(self, version):
+        self.__versions.insert(0, version)
+
+    def add_version(self, version):
+        self.__versions.append(version)
+
+    def update_version(self, version, index):
+        self.__versions[index] = version
+
+    def analyze_changelog_file(self, changelog_path):
+        try:
+            with open(changelog_path, "r") as cl:
+                changelog_lines = cl.readlines()
+        except FileNotFoundError:
+            changelog_lines = [HEADER]
+        iterator = filter(lambda line: line != "\n", changelog_lines)
+        changelog_lines = list(iterator)
+        version_pattern = r"## v(\d+\.\d+\.\d+)"
+        current_version = None
+        for line in changelog_lines[HEADER_SIZE:]:
+            m = re.search(version_pattern, line)
+            if m:
+                if current_version:
+                    self.add_version(current_version)
+                current_version = Version(line)
+            else:
+                current_version.set_line(line)
+        if current_version:
+            self.add_version(current_version)
+
+    def add_line_in_version(self, release_line, line):
+        iterator_index = (i for i, version in enumerate(self.__versions) if version.version_title_matches(release_line))
+        try:
+            index = next(iterator_index)
+            version = self.__versions[index]
+            version.add_commit_line(line)
+            self.update_version(version, index)
+        except StopIteration:
+            version = Version(release_line)
+            version.add_commit_line(line)
+            self.push_version(version)
+
+    def __str__(self):
+        content = f"{HEADER}\n\n"
+        for version in self.__versions:
+            content += version.__str__()
+        return content
 
 
 CHANGELOG_FILE = "CHANGELOG.md"
@@ -15,7 +147,6 @@ JIRA_LINK = "https://jira.intranet.roche.com/jira/browse/"
 TASK_PREFIX = "GNAP-"
 CHANGELOG_SUBTITLE = r"(?P<type_of_change>:[A-Z]+:)"
 GNAP_REGEX = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
-
 
 
 def get_commit_file():
@@ -38,31 +169,12 @@ def get_jira_task(commit_line):
         return ""
 
 
-def get_subtitle(commit_line):
-    m = re.search(CHANGELOG_SUBTITLE, commit_line)
-    try:
-        type_of_change = m.group("type_of_change").replace(":", "")
-        return f"### {type_of_change.capitalize()}"
-    except AttributeError:
-        return "### New"
-
-
 def get_changelines(commit_msg):
     commit_line = get_commit_line(commit_msg)
     commit_line = commit_line.replace(ESCAPE_STRING, "").lstrip()
     jira_task = get_jira_task(commit_line)
     commit_line = re.sub(GNAP_REGEX, "", commit_line).lstrip()
-    # type_of_change = get_subtitle(commit_line)
-    # commit_line = re.sub(CHANGELOG_SUBTITLE, "", commit_line).lstrip()
     return f"* {jira_task}{commit_line}"
-
-
-def get_changelog_lines():
-    try:
-        with open(CHANGELOG_FILE, "r") as cl:
-            return cl.read()
-    except FileNotFoundError:
-        return """# Changelog"""
 
 
 def get_next_release_date(todays_date=None):
@@ -83,40 +195,10 @@ def get_latest_release_version(changelog_lines, next_release_date):
         return f"## v0.1.0 ({next_release_date})"
 
 
-def insert_commit_in_changelog_lines(changelog_lines, latest_release_version, next_release_date, changelines):
-    list_of_lines = changelog_lines.split("\n")
-    if latest_release_version not in changelog_lines:
-        content = list_of_lines[:2]
-        content.append(f"{latest_release_version} ({next_release_date})")
-        content.extend(changelines)
-        content.extend(list_of_lines[2:])
-        return content
-    init = list_of_lines.index(f"{latest_release_version} ({next_release_date})")
-    content = list_of_lines[:init]
-    subset = list_of_lines[init + 1:]
-    end = len(list_of_lines)
-    version_regex = r"## v\d+\.\d+\.\d+"
-    for i, line in enumerate(subset):
-        m = re.search(version_regex, line)
-        if m is not None:
-            end = i + init
-            break
-    subset = list_of_lines[init:end]
-    try:
-        group_index = subset.index(changelines[0])
-        if changelines[1] not in subset:
-            subset.insert(group_index + 1, changelines[1])
-    except ValueError:
-        subset.insert(init, changelines[0])
-        subset.insert(init + 1, changelines[1])
-    content.extend(subset)
-    content.extend(list_of_lines[end:])
-    return content
-
-
 def dump_to_changelog_file(content):
     with open(CHANGELOG_FILE, "w") as cl:
         cl.write(content.__str__())
+
 
 def clean_msg(commit_msg):
     commit_line = get_commit_line(commit_msg)
@@ -140,6 +222,7 @@ def main():
         dump_to_changelog_file(changelog)
         os.system(f"git add {CHANGELOG_FILE}")
         os.system(f"git commit --amend -m \"{commit_msg}\"")
+
 
 if __name__ == "__main__":
     main()
