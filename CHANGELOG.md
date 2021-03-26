@@ -7,7 +7,7 @@
 * Test of editing changelog
 ### New
 
-* [GNAP-4561](https://jira.intranet.roche.com/jira/browse/GNAP-4561) -   - testing jira task fulfilled in changelog
+* [GNAP-4561](https://jira.intranet.roche.com/jira/browse/GNAP-4561) - testing jira task fulfilled in changelog
 
 ## v0.0.9 (March 24 2021)
 

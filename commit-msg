@@ -33,7 +33,7 @@ def get_jira_task(commit_line):
     m = re.search(GNAP_REGEX, commit_line)
     try:
         jira_task = m.group("jira_task")
-        return f"[{jira_task}]({JIRA_LINK}{jira_task}) - "
+        return f"[{jira_task}]({JIRA_LINK}{jira_task})"
     except AttributeError:
         return ""
 
