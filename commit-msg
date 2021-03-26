@@ -5,6 +5,20 @@ import sys
 import re
 import os
 
+# Changelog constants
+HEADER = "# Changelog"
+HEADER_SIZE = 1
+
+# Script constants
+CHANGELOG_FILE = "CHANGELOG.md"
+WEDNESDAY = 2
+WEEK_NUMBER_OF_DAYS = 7
+ESCAPE_STRING = ":fix:"
+JIRA_LINK = "https://jira.intranet.roche.com/jira/browse/"
+TASK_PREFIX = "GNAP-"
+CHANGELOG_SUBTITLE = r"(?P<type_of_change>:[A-Z]+:)"
+GNAP_REGEX = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
+
 
 class Group:
     """Handle every group included in changelog."""
@@ -81,9 +95,6 @@ class Version:
         return content
 
 
-HEADER = "# Changelog"
-HEADER_SIZE = 1
-
 class Changelog:
     """Handle all the changelog file"""
 
@@ -137,16 +148,6 @@ class Changelog:
         for version in self.__versions:
             content += version.__str__()
         return content
-
-
-CHANGELOG_FILE = "CHANGELOG.md"
-WEDNESDAY = 2
-WEEK_NUMBER_OF_DAYS = 7
-ESCAPE_STRING = ":fix:"
-JIRA_LINK = "https://jira.intranet.roche.com/jira/browse/"
-TASK_PREFIX = "GNAP-"
-CHANGELOG_SUBTITLE = r"(?P<type_of_change>:[A-Z]+:)"
-GNAP_REGEX = r"(?P<jira_task>%s\d+)" % TASK_PREFIX
 
 
 def get_commit_file():
