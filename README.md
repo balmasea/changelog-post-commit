@@ -48,7 +48,11 @@ When some development has been finished in some branch and the developer is read
 
 Attention: GROUP needs to be in **capital letters**, otherwise, it will not be added to changelog file.
 
-### Example
+### Jira links
+
+To include Jira task link, it only needs to include `GNAP-{NUMBER}` string inside the commit message.
+
+### Examples
 
 * If this commit is done on March 26th:
 
@@ -65,4 +69,25 @@ this will be `CHANGELOG.md` content:
 ### New
 
 * First draft of hook
+```
+
+* If this commit is done on March 26th over that former changelog and with a Jira task:
+
+```bash
+$ git commit -m ':fix: :FIX: GNAP-1986 - Unbowed, Unbent, Unbroken
+```
+
+this will be `CHANGELOG.md` content:
+```markdown
+
+# Changelog
+
+## v0.1.0 (March 31 2021)
+### New
+
+* First draft of hook
+
+### Fix
+
+* [GNAP-1986](https://jira.intranet.roche.com/jira/browse/GNAP-1986) - Unbowed, Unbent, Unbroken
 ```
