@@ -11,6 +11,7 @@ HEADER_SIZE = 1
 
 # Script constants
 CHANGELOG_FILE = "CHANGELOG.md"
+MONDAY = 0
 WEDNESDAY = 2
 WEEK_NUMBER_OF_DAYS = 7
 ESCAPE_STRING = ":fix:"
@@ -32,7 +33,7 @@ class Group:
 
     def add_line(self, line):
         line = line.replace("* ", "")
-        self.__lines += f"* {line.strip()}"
+        self.__lines += f"* {line.strip()}\n"
 
     def title_matches(self, title):
         return title.upper() in self.__title.upper()
@@ -127,7 +128,14 @@ class Changelog:
                     self.add_version(current_version)
                 current_version = Version(line)
             else:
-                current_version.set_line(line)
+                try:
+                    current_version.set_line(line)
+                except IndexError:
+                    print(f"""Line {line} is missing a chapter like:
+                    ### New
+                    ### Fix
+                    ### Change.\nPlease, fix the CHANGELOG file. Good-bye!""")
+                    exit(-1)
         if current_version:
             self.add_version(current_version)
 
