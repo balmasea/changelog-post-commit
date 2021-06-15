@@ -45,6 +45,7 @@ When some development has been finished in some branch and the developer is read
     * CHANGES
     * FIX
     * DOCUMENTATION
+* `:collection:` to set the release date as next Monday. By default, it will use next Wednesday as preferred date.
 
 Attention: GROUP needs to be in **capital letters**, otherwise, it will not be added to changelog file.
 
