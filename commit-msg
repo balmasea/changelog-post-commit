@@ -119,6 +119,7 @@ class Changelog:
             changelog_lines = [HEADER]
         iterator = filter(lambda line: line != "\n", changelog_lines)
         changelog_lines = list(iterator)
+        changelog_lines = [line.rstrip() for line in changelog_lines]
         version_pattern = r"## v(\d+\.\d+\.\d+)"
         current_version = None
         for line in changelog_lines[HEADER_SIZE:]:

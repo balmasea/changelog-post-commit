@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.3.0 (June 16 2021)
+### New
+
+* Removing spare whitelines
+
 ## v0.2.0 (April 21 2021)
 ### Fix
 
